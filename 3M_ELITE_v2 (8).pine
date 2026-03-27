@@ -1,0 +1,768 @@
+//@version=6
+indicator("3M ELITE", overlay=true, max_labels_count=50, max_lines_count=50, max_boxes_count=100, max_polylines_count=50, calc_bars_count=5000)
+
+max_bars_back(time, 200), max_bars_back(close, 200), max_bars_back(high, 200), max_bars_back(low, 200), max_bars_back(open, 200)
+float _x = nz(high[math.min(bar_index, 199)]) + nz(low[math.min(bar_index, 199)])
+
+var float pip = syminfo.type == "forex" ? syminfo.mintick * 10 : syminfo.mintick
+int cTF = timeframe.in_seconds()
+
+// INPUTS
+string PC = input.string("30s", "Preset", options=["5s", "15s", "30s", "1m"], group="Preset")
+bool sMTF = input.bool(true, "MTF Table", group="Preset")
+string mPos = input.string("Top Left", "Position", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"])
+bool sEMA = input.bool(false, "EMAs", group="EMA"), color c10 = input.color(#434651, "10", group="EMA"), color c50 = input.color(#000000, "50", group="EMA"), color c200 = input.color(color.red, "200", group="EMA")
+bool sSMA = input.bool(false, "SMAs", group="SMA"), color s20c = input.color(#434651, "20", group="SMA"), color s50c = input.color(#000000, "50", group="SMA"), color s200c = input.color(color.red, "200", group="SMA")
+bool eSUp = input.bool(false, "Bull SMA Alert", group="SMA Slope"), bool eSDn = input.bool(false, "Bear SMA Alert", group="SMA Slope")
+bool sBC = input.bool(false, "DTC Color", group="DTC"), color cDU = input.color(color.green, "Bull", group="DTC"), color cDD = input.color(color.red, "Bear", group="DTC"), bool eDU = input.bool(true, "Bull Alert", group="DTC"), bool eDD = input.bool(true, "Bear Alert", group="DTC")
+bool e3U = input.bool(false, "Bull 3M", group="3M"), bool e3D = input.bool(false, "Bear 3M", group="3M"), color c3U = input.color(color.green, "Bull", group="3M"), color c3D = input.color(color.red, "Bear", group="3M"), int wW = input.int(2, "Width", minval=1, maxval=5, group="3M"), bool e3A = input.bool(true, "3M Alert", group="3M")
+bool sK = input.bool(true, "Structure", group="Struct"), int kW = input.int(1, "Width", minval=1, maxval=10, group="Struct"), color kC = input.color(color.blue, "Color", group="Struct"), string lSz = input.string("Small", "Label", options=["Tiny", "Small", "Normal", "Large", "Huge"], group="Struct"), color aC = input.color(color.gray, "ATR Color", group="Struct"), int aP = input.int(14, "ATR Period", minval=1, group="Struct"), bool eBA = input.bool(true, "Break Alert", group="Struct")
+bool sSDZ = input.bool(true, "Show S/D Zones", group="S&D"), color cSDZD = input.color(color.new(color.green, 70), "Demand", group="S&D"), color cSDZS = input.color(color.new(color.red, 70), "Supply", group="S&D"), int sdzBW = input.int(1, "Border", minval=1, maxval=3, group="S&D")
+
+// PRESETS
+var int P = PC == "5s" ? 0 : PC == "15s" ? 1 : PC == "30s" ? 2 : 3
+var int T0 = P == 0 ? 5 : P == 1 ? 15 : P == 2 ? 30 : 60
+var int T1 = P == 0 ? 120 : P == 1 ? 240 : P == 2 ? 480 : 900
+var int T2 = P == 0 ? 300 : P == 1 ? 900 : P == 2 ? 1800 : 3600
+var int T3 = P == 0 ? 1200 : P == 1 ? 3600 : P == 2 ? 7200 : 14400
+var int T4 = P == 0 ? 2400 : P == 1 ? 7200 : P == 2 ? 14400 : 28800
+var int T5 = P == 0 ? 7200 : P == 1 ? 21600 : P == 2 ? 43200 : 86400
+var string S0 = P == 0 ? "5S" : P == 1 ? "15S" : P == 2 ? "30S" : "1"
+var string S1 = P == 0 ? "2" : P == 1 ? "4" : P == 2 ? "8" : "15"
+var string S2 = P == 0 ? "5" : P == 1 ? "15" : P == 2 ? "30" : "60"
+var string S3 = P == 0 ? "20" : P == 1 ? "60" : P == 2 ? "120" : "240"
+var string S4 = P == 0 ? "40" : P == 1 ? "120" : P == 2 ? "240" : "480"
+var string S5 = P == 0 ? "120" : P == 1 ? "360" : P == 2 ? "720" : "D"
+var string L0 = P == 0 ? "5s" : P == 1 ? "15s" : P == 2 ? "30s" : "1m"
+var string L1 = P == 0 ? "2m" : P == 1 ? "4m" : P == 2 ? "8m" : "15m"
+var string L2 = P == 0 ? "5m" : P == 1 ? "15m" : P == 2 ? "30m" : "1h"
+var string L3 = P == 0 ? "20m" : P == 1 ? "1h" : P == 2 ? "2h" : "4h"
+var string L4 = P == 0 ? "40m" : P == 1 ? "2h" : P == 2 ? "4h" : "8h"
+var string L5 = P == 0 ? "2h" : P == 1 ? "6h" : P == 2 ? "12h" : "D"
+var string szL = lSz == "Tiny" ? size.tiny : lSz == "Small" ? size.small : lSz == "Normal" ? size.normal : lSz == "Large" ? size.large : size.huge
+
+bool i0 = cTF == T0, bool i1 = cTF == T1, bool i2 = cTF == T2, bool i3 = cTF == T3, bool i4 = cTF == T4, bool i5 = cTF == T5
+
+// TABLES
+var table logoTbl = table.new(position.top_center, 1, 1)
+var table mktTbl = table.new(position.bottom_right, 1, 2, border_width=1)
+var table mtfTbl = na
+if barstate.isfirst
+    table.cell(logoTbl, 0, 0, "3M TRADING", bgcolor=color.new(color.black, 100), text_color=color.black)
+    if sMTF
+        mtfTbl := table.new(position.top_left, 2, 8, bgcolor=color.new(#1C1C1E, 20), border_color=#2C2C2E, border_width=1)
+
+// EMA/SMA
+float e10 = ta.ema(close, 10)
+float s20 = ta.sma(close, 20)
+max_bars_back(e10, 200)
+max_bars_back(s20, 200)
+plot(sEMA ? e10 : na, "E10", c10, 1, editable=false)
+plot(sEMA ? ta.ema(close, 50) : na, "E50", c50, 1, editable=false)
+plot(sEMA ? ta.ema(close, 200) : na, "E200", c200, 1, editable=false)
+plot(sSMA ? s20 : na, "S20", s20c, 1, editable=false)
+plot(sSMA ? ta.sma(close, 50) : na, "S50", s50c, 1, editable=false)
+plot(sSMA ? ta.sma(close, 200) : na, "S200", s200c, 1, editable=false)
+
+float sl = s20 - nz(s20[1])
+float psl = nz(s20[1]) - nz(s20[2])
+bool sU = sl > 0 and psl <= 0
+bool sD = sl < 0 and psl >= 0
+if barstate.isconfirmed and eSUp and sU
+    alert("SMA UP " + syminfo.ticker, alert.freq_once_per_bar_close)
+if barstate.isconfirmed and eSDn and sD
+    alert("SMA DN " + syminfo.ticker, alert.freq_once_per_bar_close)
+
+// DTC
+bool dU = close > e10 and close[1] <= e10[1]
+bool dDn = close < e10 and close[1] >= e10[1]
+barcolor(sBC ? dU ? cDU : dDn ? cDD : na : na, editable=false)
+if barstate.isconfirmed and eDU and dU
+    alert("DTC Bull " + syminfo.ticker, alert.freq_once_per_bar_close)
+if barstate.isconfirmed and eDD and dDn
+    alert("DTC Bear " + syminfo.ticker, alert.freq_once_per_bar_close)
+
+// 3M WICK
+bool wU = low < low[1] and close >= low[1]
+bool wDn = high > high[1] and close <= high[1]
+if e3U and wU
+    line.new(bar_index, low, bar_index, math.min(open, close), color=c3U, width=wW)
+if e3D and wDn
+    line.new(bar_index, high, bar_index, math.max(open, close), color=c3D, width=wW)
+if barstate.isconfirmed and e3A and e3U and wU
+    alert("3M Bull " + syminfo.ticker, alert.freq_once_per_bar_close)
+if barstate.isconfirmed and e3A and e3D and wDn
+    alert("3M Bear " + syminfo.ticker, alert.freq_once_per_bar_close)
+
+// STATE
+var float bH = na, var float bL = na, var float pH = na, var float pL = na
+var bool mU = false, var bool mD = false, var float hW = na, var bool inB = false
+var int cBullish = 0, var int cBearish = 0
+var array<int> sq = array.new_int(0)
+var string mdl = "Neutral"
+var int nU = 0, var int nDn = 0
+var int lDB = na, var int lUB = na
+var bool canU = true, var bool canDn = true
+var float sLo = na, var float sHi = na
+var bool lkL = false, var bool lkH = false
+var bool pHS = false, var bool pLS = false
+var bool uPh = false, var int bkB = na
+var bool waitH = false, var bool waitL = false
+var float tempH = na, var float tempL = na
+var int pbB = na, var float pbLow = na
+var int enB = na, var float enHigh = na
+var bool hPB = false, var bool hEN = false
+var float swingH = na, var float swingL = na
+var bool mkU = false, var bool mkDn = false
+var string pMd = ""
+
+// Track bar index where bL and bH were last set — needed for zone search range
+var int bLsetBar = na
+var int bHsetBar = na
+
+if na(bH)
+    bH := high
+    bHsetBar := bar_index
+if na(bL)
+    bL := low
+    bLsetBar := bar_index
+
+bool isPB = close < low[1] or open < low[1]
+bool isEN = close > high[1] or open > high[1]
+bool isPE = open < low[1]
+bool isBPE = open > high[1]
+
+if (isPB or isPE) and not(close > bH or open > bH)
+    pbB := bar_index
+    pbLow := math.min(open, low)
+if (isEN or isBPE) and not(close < bL or open < bL)
+    enB := bar_index
+    enHigh := math.max(open, high)
+
+// BULLISH BREAK
+mkU := false
+if close > bH or open > bH
+    inB := true
+    hW := high
+    pH := bH
+    pL := bL
+    bH := high
+    bHsetBar := bar_index
+    if isPB or isPE
+        bL := low
+        bLsetBar := bar_index
+    else
+        float lp = low
+        if not na(pbB) and bar_index > pbB and not lkL
+            lp := math.min(low, pbLow)
+        bL := lp
+        bLsetBar := bar_index
+        int j = 1
+        bool wf = true
+        int mx = math.min(100, bar_index)
+        while wf and j < mx and not na(close[j])
+            if close[j] < open[j] or open[j] < low[j+1]
+                if close[j] < low[j+1] or open[j] < low[j+1]
+                    wf := false
+            if low[j] < bL
+                bL := low[j]
+                bLsetBar := bar_index - j
+                if bL != pL and not mU
+                    mU := true
+            j += 1
+    pbB := na
+    pbLow := na
+    mU := false
+    uPh := true
+    bkB := bar_index
+    if (close > pH or open > pH) and canU and barstate.isconfirmed
+        nU += 1
+        cBullish += 1
+        cBearish := 0
+        array.push(sq, 1)
+        mkU := true
+        canU := false
+        lUB := bar_index
+    nDn := 0
+    waitH := true
+    tempH := high
+    pHS := false
+    lkH := false
+    hPB := false
+    swingH := na
+
+if (isPB or isPE) and uPh and bar_index > bkB
+    hPB := true
+if not na(high[2]) and uPh and bar_index > bkB
+    if high[1] > high[2] and high[1] > high and na(swingH) and high[1] >= bH
+        swingH := high[1]
+if waitH and not pHS and uPh and bar_index > bkB
+    tempH := na(tempH) ? high : math.max(tempH, high)
+    bH := tempH
+    bHsetBar := bar_index
+    if hPB and not na(swingH)
+        bH := swingH
+        lkH := true
+        pHS := true
+        waitH := false
+    else if not na(swingH)
+        bH := swingH
+    else if hPB
+        bH := tempH
+if not na(sHi)
+    sHi := math.max(sHi, high)
+    bH := sHi
+    bHsetBar := bar_index
+if isPB or isPE
+    sHi := na
+    canU := true
+
+// BEARISH BREAK
+mkDn := false
+if close < bL or open < bL
+    pH := bH
+    pL := bL
+    bL := low
+    bLsetBar := bar_index
+    if isEN or isBPE
+        bH := high
+        bHsetBar := bar_index
+    else
+        float hp = high
+        if not na(enB) and bar_index > enB and not lkH
+            hp := math.max(high, enHigh)
+        bH := hp
+        bHsetBar := bar_index
+        int j = 1
+        bool wf = true
+        int mx = math.min(100, bar_index)
+        while wf and j < mx and not na(close[j])
+            if close[j] > open[j] or open[j] > high[j+1]
+                if close[j] > high[j+1] or open[j] > high[j+1]
+                    wf := false
+            if high[j] > bH
+                bH := high[j]
+                bHsetBar := bar_index - j
+                if bH != pH and not mD
+                    mD := true
+            j += 1
+    enB := na
+    enHigh := na
+    mD := false
+    uPh := false
+    bkB := bar_index
+    if (close < pL or open < pL) and canDn and barstate.isconfirmed
+        nDn += 1
+        cBearish += 1
+        cBullish := 0
+        array.push(sq, -1)
+        mkDn := true
+        canDn := false
+        lDB := bar_index
+    nU := 0
+    waitL := true
+    tempL := low
+    pLS := false
+    lkL := false
+    hEN := false
+    swingL := na
+
+if (isEN or isBPE) and not uPh and bar_index > bkB
+    hEN := true
+if not na(low[2]) and not uPh and bar_index > bkB
+    if low[1] < low[2] and low[1] < low and na(swingL) and low[1] <= bL
+        swingL := low[1]
+if waitL and not pLS and not uPh and bar_index > bkB
+    tempL := na(tempL) ? low : math.min(tempL, low)
+    bL := tempL
+    bLsetBar := bar_index
+    if hEN and not na(swingL)
+        bL := swingL
+        lkL := true
+        pLS := true
+        waitL := false
+    else if not na(swingL)
+        bL := swingL
+    else if hEN
+        bL := tempL
+if not na(sLo)
+    sLo := math.min(sLo, low)
+    bL := sLo
+    bLsetBar := bar_index
+if isEN or isBPE
+    sLo := na
+    canDn := true
+if (isPB or isPE) and bar_index > lUB
+    canU := true
+if array.size(sq) > 20
+    array.shift(sq)
+
+// ═══════════════════════════════════════════════════════════
+// S&D ZONE DETECTION — FRESH IMPLEMENTATION
+// ═══════════════════════════════════════════════════════════
+//
+// For DEMAND (bullish break mkU):
+//   Search window: from bLsetBar to bkB-1 (inclusive)
+//   i.e. from where bL was last set up to (not including) the breakout candle
+//   Find the LOWEST unmitigated valid candle in that window
+//
+// For SUPPLY (bearish break mkDn):
+//   Search window: from bHsetBar to bkB-1 (inclusive)
+//   Find the HIGHEST unmitigated valid candle in that window
+//
+// A candle is VALID if:
+//   1. The candle immediately AFTER it (closer to breakout) closes beyond its range
+//      (demand: next candle closes ABOVE candidate high = engulfing)
+//      (supply: next candle closes BELOW candidate low = engulfing)
+//   2. No candle between the engulfing candle and bar_index wicks into [cL, cH]
+//      (any wick touching = mitigated)
+//   3. One candle rule: fewer than 2 candles after the engulfing candle
+//      trade beyond the engulfing candle's extreme
+
+// ═══════════════════════════════════════════════════════════
+// S&D ZONE DETECTION — CORRECTED IMPLEMENTATION
+// ═══════════════════════════════════════════════════════════
+//
+// For each candle in the search range, treat it as the ZONE CANDLE.
+// The candle immediately to its right (cOff-1) must be the engulfing candle.
+// Check mitigation on all candles after the engulfing candle.
+// Among all valid zone candles, pick the one with lowest low (demand)
+// or highest high (supply).
+
+f_findDemandZone(int breakBar, int rangeStartBar) =>
+    float zH = na
+    float zL = na
+    int   zB = na
+    float bestLow = na
+
+    int maxOff = math.min(bar_index - rangeStartBar, 500)
+
+    // Iterate every candle as a potential zone candle
+    // Zone candle at cOff, engulfing candle at cOff-1
+    // cOff must be >= 2 so engulfing candle (cOff-1) >= 1 (not the breakout itself... unless cOff=1)
+    // Actually cOff can be 1 if the breakout candle (offset 0) is the engulfing candle
+    int cOff = 1
+    while cOff <= maxOff
+        float cH = high[cOff]
+        float cL = low[cOff]
+
+        // Only consider if this could be lower than current best
+        if na(bestLow) or cL < bestLow
+
+            // Engulfing check: candle at cOff-1 (to the right) closes ABOVE cH
+            bool engulfing = false
+            if cOff == 1
+                // Engulfing candle would be the breakout candle (offset 0)
+                engulfing := close[0] > cH
+            else
+                engulfing := close[cOff - 1] > cH
+
+            if engulfing
+                // Mitigation check: any candle from cOff-2 to 1 wicks into [cL, cH]
+                // (candles after the engulfing candle)
+                bool mitigated = false
+                int k = cOff - 2
+                while k >= 1 and not mitigated
+                    if low[k] < cH and high[k] > cL
+                        mitigated := true
+                    k -= 1
+
+                if not mitigated
+                    // One candle rule: count candles after engulfing above engulfing high
+                    float engulfHigh = cOff == 1 ? high[0] : high[cOff - 1]
+                    int   aboveCount = 0
+                    int   m = cOff - 2
+                    while m >= 1
+                        if high[m] > engulfHigh
+                            aboveCount += 1
+                        m -= 1
+
+                    if aboveCount < 2
+                        bestLow := cL
+                        zH := cH
+                        zL := cL
+                        zB := bar_index - cOff
+
+        cOff += 1
+
+    [zH, zL, zB]
+
+f_findSupplyZone(int breakBar, int rangeStartBar) =>
+    float zH = na
+    float zL = na
+    int   zB = na
+    float bestHigh = na
+    string dbMsg = ""
+
+    int maxOff = math.min(bar_index - rangeStartBar, 500)
+
+    int cOff = 1
+    while cOff <= maxOff
+        float cH = high[cOff]
+        float cL = low[cOff]
+
+        if na(bestHigh) or cH > bestHigh
+            bool engulfing = false
+            if cOff == 1
+                engulfing := close[0] < cL
+            else
+                engulfing := close[cOff - 1] < cL
+
+            if engulfing
+                bool mitigated = false
+                int k = cOff - 2
+                while k >= 1 and not mitigated
+                    if high[k] > cL and low[k] < cH
+                        mitigated := true
+                    k -= 1
+
+                if not mitigated
+                    float engulfLow = cOff == 1 ? low[0] : low[cOff - 1]
+                    int   belowCount = 0
+                    int   m = cOff - 2
+                    while m >= 1
+                        if low[m] < engulfLow
+                            belowCount += 1
+                        m -= 1
+
+                    if belowCount < 2
+                        bestHigh := cH
+                        zH := cH
+                        zL := cL
+                        zB := bar_index - cOff
+                    else
+                        dbMsg := "off" + str.tostring(cOff) + ":1candle"
+                else
+                    dbMsg := "off" + str.tostring(cOff) + ":mitigated"
+            else
+                dbMsg := "off" + str.tostring(cOff) + ":noEngulf"
+
+        cOff += 1
+
+    [zH, zL, zB, dbMsg]
+
+// MODEL DETERMINATION
+var array<int> gS = array.new_int(0)
+var array<int> gD = array.new_int(0)
+int nG = 0, int lS = 0, int lDir = 0
+int g1s = 0, int g1dir = 0, int g2s = 0, int g2dir = 0, int g3s = 0, int g3dir = 0, int g4s = 0, int g4dir = 0
+
+int sqLen = array.size(sq)
+if sqLen >= 1
+    array.clear(gS)
+    array.clear(gD)
+    int cs = 1
+    int cd = array.get(sq, 0)
+    if sqLen > 1
+        int idx = 1
+        while idx < sqLen
+            int bd = array.get(sq, idx)
+            if bd == cd
+                cs += 1
+            else
+                array.push(gS, cs)
+                array.push(gD, cd)
+                cs := 1
+                cd := bd
+            idx += 1
+    array.push(gS, cs)
+    array.push(gD, cd)
+    nG := array.size(gS)
+    if nG >= 1
+        lS := array.get(gS, nG-1)
+        lDir := array.get(gD, nG-1)
+    if nG >= 2
+        g2s := array.get(gS, nG-2)
+        g2dir := array.get(gD, nG-2)
+    if nG >= 3
+        g3s := array.get(gS, nG-3)
+        g3dir := array.get(gD, nG-3)
+        g1s := array.get(gS, 0)
+        g1dir := array.get(gD, 0)
+    if nG >= 4
+        g4s := array.get(gS, nG-4)
+        g4dir := array.get(gD, nG-4)
+    int ones = 0
+    if nG >= 1
+        int idx2 = nG - 1
+        while idx2 >= 0
+            if array.get(gS, idx2) == 1
+                ones += 1
+                idx2 -= 1
+            else
+                break
+    if ones >= 3
+        mdl := lDir == 1 ? "Accumulation" : "Distribution"
+    else if lS >= 4
+        mdl := lDir == 1 ? "Accumulation" : "Distribution"
+    else if nG == 2 and g2s >= 4 and lS < 4
+        mdl := g2dir == 1 ? "Reaccumulation" : "Redistribution"
+    else if nG >= 1
+        int aS = 0, int aD = 0, int aI = -1
+        int idx3 = 0
+        while idx3 < nG
+            int gs = array.get(gS, idx3)
+            int gd = array.get(gD, idx3)
+            if gs >= 2 and (nG-1-idx3) < 3
+                if gs >= 4 and (aS < 4 or idx3 > aI)
+                    aS := gs
+                    aD := gd
+                    aI := idx3
+                else if aS < 4 and (gs > aS or (gs == aS and idx3 > aI))
+                    aS := gs
+                    aD := gd
+                    aI := idx3
+            idx3 += 1
+        if nG >= 3 and g3dir == 1 and g3s >= 4 and g2dir == -1 and g2s == 3 and lDir == 1 and lS == 1
+            mdl := "Reaccumulation"
+        else if nG >= 3 and g3dir == -1 and g3s >= 4 and g2dir == 1 and g2s == 3 and lDir == -1 and lS == 1
+            mdl := "Redistribution"
+        else if aD == 1
+            mdl := lDir == 1 ? "Accumulation" : "Reaccumulation"
+        else if aD == -1
+            mdl := lDir == -1 ? "Distribution" : "Redistribution"
+        else
+            mdl := lDir == 1 ? "Accumulation" : "Distribution"
+    if nG == 3
+        if g1dir == -1 and g2dir == 1 and lDir == -1 and g2s > g1s and g2s > lS
+            mdl := "Reaccumulation"
+        else if g1dir == 1 and g2dir == -1 and lDir == 1 and g2s > g1s and g2s > lS
+            mdl := "Redistribution"
+    if ones < 3 and nG >= 3 and g3s == g2s and g2s == lS and g3s >= 2 and g3dir == lDir and g3dir != g2dir
+        mdl := lDir == 1 ? "Accumulation" : "Distribution"
+    if nG >= 4
+        if g4dir == 1 and g4s >= 5 and g3dir == -1 and g3s == 3 and g2dir == 1 and g2s == 3 and lDir == -1 and lS >= 2
+            mdl := "Distribution"
+        else if g4dir == -1 and g4s >= 5 and g3dir == 1 and g3s == 3 and g2dir == -1 and g2s == 3 and lDir == 1 and lS >= 2
+            mdl := "Accumulation"
+        else if g4dir == -1 and g4s == 3 and g3dir == 1 and g3s == 3 and g2dir == -1 and g2s == 3 and lDir == 1 and lS == 1
+            mdl := "Accumulation"
+        else if g4dir == 1 and g4s == 3 and g3dir == -1 and g3s == 3 and g2dir == 1 and g2s == 3 and lDir == -1 and lS == 1
+            mdl := "Distribution"
+
+string bM = mdl
+bool adv = false
+int fDir = lDir
+int fS = lS
+
+if nG >= 3
+    bool bullMid = g3dir == -1 and g2dir == 1 and lDir == -1
+    bool bullAdv = bullMid and (
+         (g3s == 1 and g2s == 2 and lS == 1) or
+         (g3s == 2 and g2s == 2 and lS == 1) or
+         (g3s == 2 and g2s == 2 and lS == 2) or
+         (g3s == 2 and g2s == 3 and lS == 2) or
+         (g3s == 3 and g2s == 3 and lS == 1) or
+         (g3s == 3 and g2s == 3 and lS == 3) or
+         (g3s == 1 and g2s == 3 and lS == 3) or
+         (g3s == 4 and g2s == 3 and lS == 1))
+    bool bearMid = g3dir == 1 and g2dir == -1 and lDir == 1
+    bool bearAdv = bearMid and (
+         (g3s == 1 and g2s == 2 and lS == 1) or
+         (g3s == 2 and g2s == 2 and lS == 1) or
+         (g3s == 2 and g2s == 2 and lS == 2) or
+         (g3s == 2 and g2s == 3 and lS == 2) or
+         (g3s == 3 and g2s == 3 and lS == 1) or
+         (g3s == 3 and g2s == 3 and lS == 3) or
+         (g3s == 1 and g2s == 3 and lS == 3) or
+         (g3s == 4 and g2s == 3 and lS == 1))
+    adv := bullAdv or bearAdv
+
+// MTF
+gM() =>
+    int u = math.max(nU, nDn)
+    string display = cTF >= T5 or u <= (cTF <= T0 ? 4 : 6) ? bM : "NO TRADE"
+    [display, bM, adv, fDir, fS]
+f(string t) => request.security(syminfo.tickerid, t, gM())
+
+[b0, raw0, a0, dir0, z0] = f(S0)
+[b1, raw1, a1, dir1, z1] = f(S1)
+[b2, raw2, a2, dir2, z2] = f(S2)
+[b3, raw3, a3, dir3, z3] = f(S3)
+[b4, raw4, a4, dir4, z4] = f(S4)
+[b5, raw5, a5, dir5, z5] = f(S5)
+
+bool u3 = raw3 == "Accumulation" or raw3 == "Reaccumulation"
+bool bear3 = raw3 == "Distribution" or raw3 == "Redistribution"
+bool u4 = raw4 == "Accumulation" or raw4 == "Reaccumulation"
+bool bear4 = raw4 == "Distribution" or raw4 == "Redistribution"
+bool u5 = raw5 == "Accumulation" or raw5 == "Reaccumulation"
+bool bear5 = raw5 == "Distribution" or raw5 == "Redistribution"
+bool u2 = raw2 == "Accumulation" or raw2 == "Reaccumulation"
+bool bear2 = raw2 == "Distribution" or raw2 == "Redistribution"
+bool u1 = raw1 == "Accumulation" or raw1 == "Reaccumulation"
+bool bear1 = raw1 == "Distribution" or raw1 == "Redistribution"
+bool lC = not a3 and (u3 or bear3)
+bool hC = not a4 and (u4 or bear4)
+
+string bias = "Either"
+if a3 and a4
+    bias := u5 ? "Bullish" : bear5 ? "Bearish" : u3 and u4 ? "Bullish" : bear3 and bear4 ? "Bearish" : "Either"
+else if a3 and hC
+    bias := u4 ? "Bullish" : bear4 ? "Bearish" : "Either"
+else if a4 and lC
+    bias := u3 ? "Bullish" : bear3 ? "Bearish" : "Either"
+else if u3 and u4
+    bias := "Bullish"
+else if bear3 and bear4
+    bias := "Bearish"
+else if lC and hC
+    bias := a2 ? (u3 ? "Bullish" : "Bearish") : (u2 and not a2) ? "Bullish" : (bear2 and not a2) ? "Bearish" : (u1 and not a1) ? "Bullish" : (bear1 and not a1) ? "Bearish" : "Either"
+
+string eB = not a3 and not a4 and u3 and u4 ? "Accumulation" : not a3 and not a4 and bear3 and bear4 ? "Distribution" : ""
+rM(string m, bool av, int dr, string h) =>
+    string ef = eB != "" ? eB : h
+    ef != "" and av ? (ef == "Accumulation" or ef == "Reaccumulation" ? (dr == 1 ? "Accumulation" : "Reaccumulation") : dr == -1 ? "Distribution" : "Redistribution") : m
+
+string res5 = raw5
+string res4 = rM(raw4, a4, dir4, res5)
+string res3 = rM(raw3, a3, dir3, res4)
+string res2 = rM(raw2, a2, dir2, res3)
+string res1 = rM(raw1, a1, dir1, res2)
+string res0 = rM(raw0, a0, dir0, res1)
+
+string r5 = str.startswith(b5, "NO") ? b5 : res5
+string r4 = str.startswith(b4, "NO") ? b4 : res4
+string r3 = str.startswith(b3, "NO") ? b3 : res3
+string r2 = str.startswith(b2, "NO") ? b2 : res2
+string r1 = str.startswith(b1, "NO") ? b1 : res1
+string r0 = str.startswith(b0, "NO") ? b0 : res0
+
+string hC2 = cTF <= T0 ? res0 : cTF <= T1 ? res1 : cTF <= T2 ? res2 : cTF <= T3 ? res3 : cTF <= T4 ? res4 : res5
+if hC2 == res5 and not (a3 and a4)
+    hC2 := raw4 != "" ? raw4 : raw3
+
+mdl := rM(mdl, adv, fDir, hC2)
+mdl := cTF < T5 and math.max(nU, nDn) > (cTF <= T0 ? 4 : 6) ? "NO TRADE" : mdl
+
+// DRAW
+dH(bool n, float p, color c, int w) =>
+    var array<chart.point> pt = array.new<chart.point>()
+    var array<polyline> pl = array.new<polyline>()
+    while pt.size() >= 100
+        pt.pop()
+    if n
+        if pt.size() > 0
+            pt.set(0, chart.point.new(time, bar_index, pt.first().price))
+        pt.unshift(chart.point.new(time, bar_index, p))
+        pt.unshift(chart.point.new(time, bar_index, p))
+    else if pt.size() > 0
+        pt.set(0, chart.point.new(time, bar_index, pt.first().price))
+    if barstate.islast and pt.size() > 0
+        while pl.size() > 0
+            pl.pop().delete()
+        pl.push(polyline.new(pt, false, false, xloc.bar_time, line_color=c, line_width=w))
+
+dL(bool n, float p, color c, int w) =>
+    var array<chart.point> pt = array.new<chart.point>()
+    var array<polyline> pl = array.new<polyline>()
+    while pt.size() >= 100
+        pt.pop()
+    if n
+        if pt.size() > 0
+            pt.set(0, chart.point.new(time, bar_index, pt.first().price))
+        pt.unshift(chart.point.new(time, bar_index, p))
+        pt.unshift(chart.point.new(time, bar_index, p))
+    else if pt.size() > 0
+        pt.set(0, chart.point.new(time, bar_index, pt.first().price))
+    if barstate.islast and pt.size() > 0
+        while pl.size() > 0
+            pl.pop().delete()
+        pl.push(polyline.new(pt, false, false, xloc.bar_time, line_color=c, line_width=w))
+
+float aV = ta.atr(aP)
+
+// OUTPUT
+if sK
+    if mkU
+        label.new(bar_index, high + syminfo.mintick * 20, str.tostring(nU), color=color.green, style=label.style_label_down, textcolor=color.white, size=szL)
+        if eBA and barstate.isconfirmed
+            alert("Bull " + syminfo.ticker, alert.freq_once_per_bar_close)
+    if mkDn
+        label.new(bar_index, low - syminfo.mintick * 20, str.tostring(nDn), color=color.red, style=label.style_label_up, textcolor=color.white, size=szL)
+        if eBA and barstate.isconfirmed
+            alert("Bear " + syminfo.ticker, alert.freq_once_per_bar_close)
+    bool mBu = mdl == "Accumulation" or mdl == "Reaccumulation"
+    color bCol = mBu ? color.green : color.red
+    int tr = ((not na(lUB) and not na(lDB) ? lUB > lDB : not na(lUB)) and mBu) or ((not na(lUB) and not na(lDB) ? lDB > lUB : not na(lDB)) and not mBu) ? 0 : 80
+    string aT = "ATR: " + str.tostring(aV, format.mintick)
+    string mT = adv and (i0 or i1 or i2 or i3 or i4) ? "ADV - " + mdl : mdl
+    mT := fS > 0 and not str.startswith(mdl, "NO") ? mT + " | " + (fDir > 0 ? "+" : "-") + str.tostring(fS) : mT
+    table.cell(mktTbl, 0, 0, aT, bgcolor=color.new(color.black, 100), text_color=aC)
+    table.cell(mktTbl, 0, 1, mT, bgcolor=color.new(bCol, tr), text_color=color.white)
+    dH(barstate.isfirst or bH != nz(bH[1]), bH, kC, kW)
+    dL(barstate.isfirst or bL != nz(bL[1]), bL, kC, kW)
+
+// S&D ZONE DRAWING
+var box sdzBox = na
+if mkU and sSDZ
+    int demandSearchStart = na(lDB) ? bar_index - 500 : lDB
+    [zH, zL, zB] = f_findDemandZone(bkB, demandSearchStart)
+    if not na(sdzBox)
+        box.delete(sdzBox)
+        sdzBox := na
+    if not na(zH)
+        sdzBox := box.new(zB, zH, bar_index, zL, border_color=color.new(color.green, 40), border_width=sdzBW, bgcolor=cSDZD)
+    // Debug: show which offset was selected and maxOff
+    int dbMaxOff = math.min(bar_index - (na(lDB) ? bar_index - 500 : lDB), 500)
+    int dbOff = na(zB) ? -1 : bar_index - zB
+    label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff), color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
+
+if mkDn and sSDZ
+    int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
+    [zH, zL, zB, dbMsg2] = f_findSupplyZone(bkB, supplySearchStart)
+    if not na(sdzBox)
+        box.delete(sdzBox)
+        sdzBox := na
+    if not na(zH)
+        sdzBox := box.new(zB, zH, bar_index, zL, border_color=color.new(color.red, 40), border_width=sdzBW, bgcolor=cSDZS)
+    int dbMaxOff2 = math.min(bar_index - (na(lUB) ? bar_index - 500 : lUB), 500)
+    int dbOff2 = na(zB) ? -1 : bar_index - zB
+    label.new(bar_index, low - aV * 2, "off=" + str.tostring(dbOff2) + " max=" + str.tostring(dbMaxOff2) + " " + dbMsg2, color=color.new(color.red, 0), textcolor=color.white, size=size.tiny, style=label.style_label_up)
+
+if sSDZ and not na(sdzBox)
+    box.set_right(sdzBox, bar_index)
+
+// MTF TABLE
+fDsp(string m, bool isAdv, bool showAdv, int dr, int sz) =>
+    string txt = isAdv and showAdv ? "ADV - " + m : m
+    sz > 0 ? txt + " | " + (dr > 0 ? "+" : "-") + str.tostring(sz) : txt
+
+gCol(string m) =>
+    str.startswith(m, "NO") ? color.gray : m == "Accumulation" or m == "Reaccumulation" ? color.green : color.red
+
+color advCol = bias == "Bullish" ? color.green : bias == "Bearish" ? color.red : color.gray
+
+if sMTF and not na(mtfTbl) and barstate.islast
+    table.set_position(mtfTbl, mPos == "Top Right" ? position.top_right : mPos == "Bottom Left" ? position.bottom_left : mPos == "Bottom Right" ? position.bottom_right : position.top_left)
+    table.cell(mtfTbl, 0, 0, "TF", bgcolor=color.new(#2C2C2E, 0), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 1, 0, "Model", bgcolor=color.new(#2C2C2E, 0), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 1, L0, bgcolor=color.new(#1C1C1E, 0), text_color=i0 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 1, fDsp(r0, a0, true, i0 ? fDir : dir0, i0 ? fS : z0), bgcolor=color.new(a0 ? advCol : gCol(r0), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 2, L1, bgcolor=color.new(#1C1C1E, 0), text_color=i1 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 2, fDsp(r1, a1, true, i1 ? fDir : dir1, i1 ? fS : z1), bgcolor=color.new(a1 ? advCol : gCol(r1), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 3, L2, bgcolor=color.new(#1C1C1E, 0), text_color=i2 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 3, fDsp(r2, a2, true, i2 ? fDir : dir2, i2 ? fS : z2), bgcolor=color.new(a2 ? advCol : gCol(r2), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 4, L3, bgcolor=color.new(#1C1C1E, 0), text_color=i3 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 4, fDsp(r3, a3, true, i3 ? fDir : dir3, i3 ? fS : z3), bgcolor=color.new(a3 ? advCol : gCol(r3), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 5, L4, bgcolor=color.new(#1C1C1E, 0), text_color=i4 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 5, fDsp(r4, a4, true, i4 ? fDir : dir4, i4 ? fS : z4), bgcolor=color.new(a4 ? advCol : gCol(r4), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 6, L5, bgcolor=color.new(#1C1C1E, 0), text_color=i5 ? color.white : color.gray, text_size=size.small)
+    table.cell(mtfTbl, 1, 6, fDsp(r5, false, false, i5 ? fDir : dir5, i5 ? fS : z5), bgcolor=color.new(gCol(r5), 50), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 0, 7, "Bias", bgcolor=color.new(#1C1C1E, 0), text_color=color.white, text_size=size.small)
+    table.cell(mtfTbl, 1, 7, bias, bgcolor=color.new(bias == "Bullish" ? color.green : bias == "Bearish" ? color.red : color.gray, 50), text_color=color.white, text_size=size.small)
+
+bool chg = mdl != pMd and pMd != ""
+if barstate.isconfirmed
+    pMd := mdl
+
+alertcondition(ta.change(nU) > 0 and barstate.isconfirmed, "Bullish Structure Break Alert", "Bullish Structure Break Alert!")
+alertcondition(ta.change(nDn) > 0 and barstate.isconfirmed, "Bearish Structure Break Alert", "Bearish Structure Break Alert!")
+alertcondition(wU and barstate.isconfirmed, "Bullish 3M Wick Alert", "Bullish 3M Wick Alert!")
+alertcondition(wDn and barstate.isconfirmed, "Bearish 3M Wick Alert", "Bearish 3M Wick Alert!")
+alertcondition(chg and mdl == "Accumulation" and barstate.isconfirmed, "Model → Accumulation", "Model → Accumulation!")
+alertcondition(chg and mdl == "Reaccumulation" and barstate.isconfirmed, "Model → Reaccumulation", "Model → Reaccumulation!")
+alertcondition(chg and mdl == "Distribution" and barstate.isconfirmed, "Model → Distribution", "Model → Distribution!")
+alertcondition(chg and mdl == "Redistribution" and barstate.isconfirmed, "Model → Redistribution", "Model → Redistribution!")
+alertcondition(sU and barstate.isconfirmed, "20 SMA Slope Bullish Alert", "20 SMA Slope Bullish Alert!")
+alertcondition(sD and barstate.isconfirmed, "20 SMA Slope Bearish Alert", "20 SMA Slope Bearish Alert!")
