@@ -337,6 +337,7 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
     float zL = na
     int   zB = na
     float bestLow = na
+    string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
@@ -345,9 +346,14 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
     // cOff must be >= 2 so engulfing candle (cOff-1) >= 1 (not the breakout itself... unless cOff=1)
     // Actually cOff can be 1 if the breakout candle (offset 0) is the engulfing candle
     int cOff = 1
+    float lowestLowSeen = na
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
+
+        // Track lowest low seen regardless of checks (for debug)
+        if na(lowestLowSeen) or cL < lowestLowSeen
+            lowestLowSeen := cL
 
         // Only consider if this could be lower than current best
         if na(bestLow) or cL < bestLow
@@ -386,10 +392,16 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
+                    else
+                        dbMsg := "off" + str.tostring(cOff) + ":1candle"
+                else
+                    dbMsg := "off" + str.tostring(cOff) + ":mitigated"
+            else
+                dbMsg := "off" + str.tostring(cOff) + ":noEngulf"
 
         cOff += 1
 
-    [zH, zL, zB]
+    [zH, zL, zB, dbMsg]
 
 f_findSupplyZone(int breakBar, int rangeStartBar) =>
     float zH = na
@@ -702,7 +714,7 @@ if sK
 var box sdzBox = na
 if mkU and sSDZ
     int demandSearchStart = na(lDB) ? bar_index - 500 : lDB
-    [zH, zL, zB] = f_findDemandZone(bkB, demandSearchStart)
+    [zH, zL, zB, dbMsgD] = f_findDemandZone(bkB, demandSearchStart)
     if not na(sdzBox)
         box.delete(sdzBox)
         sdzBox := na
@@ -711,7 +723,7 @@ if mkU and sSDZ
     // Debug: show which offset was selected and maxOff
     int dbMaxOff = math.min(bar_index - demandSearchStart, 500)
     int dbOff = na(zB) ? -1 : bar_index - zB
-    label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff), color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
+    label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff) + " " + dbMsgD, color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
 
 if mkDn and sSDZ
     int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
