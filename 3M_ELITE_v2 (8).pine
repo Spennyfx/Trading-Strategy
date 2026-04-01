@@ -358,19 +358,23 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
         // Only consider if this could be lower than current best
         if na(bestLow) or cL < bestLow
 
-            // Engulfing check: candle at cOff-1 (to the right) closes ABOVE cH
-            bool engulfing = false
-            if cOff == 1
-                // Engulfing candle would be the breakout candle (offset 0)
-                engulfing := close[0] > cH
-            else
-                engulfing := close[cOff - 1] > cH
+            // Engulfing check: look within 3 bars to the right for a candle closing ABOVE cH
+            int engulfOff = -1
+            int eCheck = 1
+            while eCheck <= math.min(3, cOff - 1)
+                if close[cOff - eCheck] > cH
+                    engulfOff := cOff - eCheck
+                    break
+                eCheck += 1
+            // Also allow the breakout candle itself (cOff == 1 case)
+            if cOff == 1 and close[0] > cH
+                engulfOff := 0
+            bool engulfing = engulfOff >= 0
 
             if engulfing
-                // Mitigation check: any candle from cOff-2 to 1 wicks into [cL, cH]
-                // (candles after the engulfing candle)
+                // Mitigation check: any candle from engulfOff-1 to 1 wicks into [cL, cH]
                 bool mitigated = false
-                int k = cOff - 2
+                int k = engulfOff - 1
                 while k >= 1 and not mitigated
                     if low[k] < cH and high[k] > cL
                         mitigated := true
@@ -378,10 +382,10 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
 
                 if not mitigated
                     // One candle rule: check only the 3 candles immediately after engulfing
-                    float engulfHigh = cOff == 1 ? high[0] : high[cOff - 1]
+                    float engulfHigh = high[engulfOff]
                     int   aboveCount = 0
-                    int   m = cOff - 2
-                    int   mMin = math.max(1, cOff - 4)
+                    int   m = engulfOff - 1
+                    int   mMin = math.max(1, engulfOff - 3)
                     while m >= mMin
                         if high[m] > engulfHigh
                             aboveCount += 1
@@ -418,25 +422,31 @@ f_findSupplyZone(int breakBar, int rangeStartBar) =>
         float cL = low[cOff]
 
         if na(bestHigh) or cH > bestHigh
-            bool engulfing = false
-            if cOff == 1
-                engulfing := close[0] < cL
-            else
-                engulfing := close[cOff - 1] < cL
+            // Engulfing check: look within 3 bars to the right for a candle closing BELOW cL
+            int engulfOff2 = -1
+            int eCheck2 = 1
+            while eCheck2 <= math.min(3, cOff - 1)
+                if close[cOff - eCheck2] < cL
+                    engulfOff2 := cOff - eCheck2
+                    break
+                eCheck2 += 1
+            if cOff == 1 and close[0] < cL
+                engulfOff2 := 0
+            bool engulfing = engulfOff2 >= 0
 
             if engulfing
                 bool mitigated = false
-                int k = cOff - 2
+                int k = engulfOff2 - 1
                 while k >= 1 and not mitigated
                     if high[k] > cL and low[k] < cH
                         mitigated := true
                     k -= 1
 
                 if not mitigated
-                    float engulfLow = cOff == 1 ? low[0] : low[cOff - 1]
+                    float engulfLow = low[engulfOff2]
                     int   belowCount = 0
-                    int   m = cOff - 2
-                    int   mMin2 = math.max(1, cOff - 4)
+                    int   m = engulfOff2 - 1
+                    int   mMin2 = math.max(1, engulfOff2 - 3)
                     while m >= mMin2
                         if low[m] < engulfLow
                             belowCount += 1
