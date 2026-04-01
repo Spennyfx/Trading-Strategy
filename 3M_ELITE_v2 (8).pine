@@ -701,7 +701,7 @@ if sK
 // S&D ZONE DRAWING
 var box sdzBox = na
 if mkU and sSDZ
-    int demandSearchStart = na(bLsetBar) ? bar_index - 500 : bLsetBar
+    int demandSearchStart = na(lDB) ? bar_index - 500 : lDB
     [zH, zL, zB] = f_findDemandZone(bkB, demandSearchStart)
     if not na(sdzBox)
         box.delete(sdzBox)
@@ -714,7 +714,7 @@ if mkU and sSDZ
     label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff), color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
 
 if mkDn and sSDZ
-    int supplySearchStart = na(bHsetBar) ? bar_index - 500 : bHsetBar
+    int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
     [zH, zL, zB, dbMsg2] = f_findSupplyZone(bkB, supplySearchStart)
     if not na(sdzBox)
         box.delete(sdzBox)
