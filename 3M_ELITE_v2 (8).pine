@@ -372,11 +372,12 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
             bool engulfing = engulfOff >= 0
 
             if engulfing
-                // Mitigation check: any candle from engulfOff-1 to 1 wicks into [cL, cH]
+                // Mitigation check: candle body (not just wick) enters zone range [cL, cH]
+                // Wick-only touches do not mitigate per strategy rules
                 bool mitigated = false
                 int k = engulfOff - 1
                 while k >= 1 and not mitigated
-                    if low[k] < cH and high[k] > cL
+                    if math.min(open[k], close[k]) < cH and high[k] > cL
                         mitigated := true
                     k -= 1
 
@@ -435,10 +436,11 @@ f_findSupplyZone(int breakBar, int rangeStartBar) =>
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
+                // Mitigation check: candle body (not just wick) enters zone range [cL, cH]
                 bool mitigated = false
                 int k = engulfOff2 - 1
                 while k >= 1 and not mitigated
-                    if high[k] > cL and low[k] < cH
+                    if math.max(open[k], close[k]) > cL and low[k] < cH
                         mitigated := true
                     k -= 1
 
