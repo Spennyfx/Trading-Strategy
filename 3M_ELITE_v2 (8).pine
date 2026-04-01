@@ -102,6 +102,7 @@ var array<int> sq = array.new_int(0)
 var string mdl = "Neutral"
 var int nU = 0, var int nDn = 0
 var int lDB = na, var int lUB = na
+var int prevLUB = na, var int prevLDB = na
 var bool canU = true, var bool canDn = true
 var float sLo = na, var float sHi = na
 var bool lkL = false, var bool lkH = false
@@ -182,6 +183,7 @@ if close > bH or open > bH
         array.push(sq, 1)
         mkU := true
         canU := false
+        prevLUB := lUB
         lUB := bar_index
     nDn := 0
     waitH := true
@@ -258,6 +260,7 @@ if close < bL or open < bL
         array.push(sq, -1)
         mkDn := true
         canDn := false
+        prevLDB := lDB
         lDB := bar_index
     nU := 0
     waitL := true
@@ -696,7 +699,7 @@ if sK
 // S&D ZONE DRAWING
 var box sdzBox = na
 if mkU and sSDZ
-    int demandSearchStart = na(lDB) ? bar_index - 500 : lDB
+    int demandSearchStart = na(lDB) and na(prevLUB) ? bar_index - 500 : na(lDB) ? prevLUB : na(prevLUB) ? lDB : math.max(lDB, prevLUB)
     [zH, zL, zB] = f_findDemandZone(bkB, demandSearchStart)
     if not na(sdzBox)
         box.delete(sdzBox)
@@ -704,19 +707,19 @@ if mkU and sSDZ
     if not na(zH)
         sdzBox := box.new(zB, zH, bar_index, zL, border_color=color.new(color.green, 40), border_width=sdzBW, bgcolor=cSDZD)
     // Debug: show which offset was selected and maxOff
-    int dbMaxOff = math.min(bar_index - (na(lDB) ? bar_index - 500 : lDB), 500)
+    int dbMaxOff = math.min(bar_index - demandSearchStart, 500)
     int dbOff = na(zB) ? -1 : bar_index - zB
     label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff), color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
 
 if mkDn and sSDZ
-    int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
+    int supplySearchStart = na(lUB) and na(prevLDB) ? bar_index - 500 : na(lUB) ? prevLDB : na(prevLDB) ? lUB : math.max(lUB, prevLDB)
     [zH, zL, zB, dbMsg2] = f_findSupplyZone(bkB, supplySearchStart)
     if not na(sdzBox)
         box.delete(sdzBox)
         sdzBox := na
     if not na(zH)
         sdzBox := box.new(zB, zH, bar_index, zL, border_color=color.new(color.red, 40), border_width=sdzBW, bgcolor=cSDZS)
-    int dbMaxOff2 = math.min(bar_index - (na(lUB) ? bar_index - 500 : lUB), 500)
+    int dbMaxOff2 = math.min(bar_index - supplySearchStart, 500)
     int dbOff2 = na(zB) ? -1 : bar_index - zB
     label.new(bar_index, low - aV * 2, "off=" + str.tostring(dbOff2) + " max=" + str.tostring(dbMaxOff2) + " " + dbMsg2, color=color.new(color.red, 0), textcolor=color.white, size=size.tiny, style=label.style_label_up)
 
