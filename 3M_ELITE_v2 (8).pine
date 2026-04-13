@@ -358,16 +358,8 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
         // Only consider if within current structural range and could be lower than current best
         if (na(bestLow) or cL < bestLow) and cL >= structLow
 
-            // Engulfing check: find the first candle to the right that closes ABOVE cH
-            int engulfOff = -1
-            int eCheck = 1
-            while eCheck < cOff
-                if close[cOff - eCheck] > cH
-                    engulfOff := cOff - eCheck
-                    break
-                eCheck += 1
-            if cOff == 1 and close[0] > cH
-                engulfOff := 0
+            // Engulfing check: immediate next candle (cOff-1) must close ABOVE zone high
+            int engulfOff = cOff == 1 ? (close[0] > cH ? 0 : -1) : (close[cOff - 1] > cH ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
@@ -422,16 +414,8 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
         float cL = low[cOff]
 
         if (na(bestHigh) or cH > bestHigh) and cH <= structHigh
-            // Engulfing check: find the first candle to the right that closes BELOW cL
-            int engulfOff2 = -1
-            int eCheck2 = 1
-            while eCheck2 < cOff
-                if close[cOff - eCheck2] < cL
-                    engulfOff2 := cOff - eCheck2
-                    break
-                eCheck2 += 1
-            if cOff == 1 and close[0] < cL
-                engulfOff2 := 0
+            // Engulfing check: immediate next candle (cOff-1) must close BELOW zone low
+            int engulfOff2 = cOff == 1 ? (close[0] < cL ? 0 : -1) : (close[cOff - 1] < cL ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
