@@ -336,35 +336,23 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
     float zH = na
     float zL = na
     int   zB = na
-    float bestLow = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate every candle as a potential zone candle
-    // Zone candle at cOff, engulfing candle at cOff-1
-    // cOff must be >= 2 so engulfing candle (cOff-1) >= 1 (not the breakout itself... unless cOff=1)
-    // Actually cOff can be 1 if the breakout candle (offset 0) is the engulfing candle
+    // Iterate from most recent candle outward; take the FIRST valid zone found
     int cOff = 1
-    float lowestLowSeen = na
-    while cOff <= maxOff
+    while cOff <= maxOff and na(zH)
         float cH = high[cOff]
         float cL = low[cOff]
 
-        // Track lowest low seen regardless of checks (for debug)
-        if na(lowestLowSeen) or cL < lowestLowSeen
-            lowestLowSeen := cL
-
-        // Only consider if within current structural range and could be lower than current best
-        if (na(bestLow) or cL < bestLow) and cL >= structLow
-
-            // Engulfing check: immediate next candle (cOff-1) must close ABOVE zone high
+        if cL >= structLow
+            // Engulfing check: immediate next candle must close ABOVE zone high
             int engulfOff = cOff == 1 ? (close[0] > cH ? 0 : -1) : (close[cOff - 1] > cH ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
-                // Mitigation check: price closes BELOW zone low (demand fully broken through)
-                // Strategy: tap + deliver to next structural low = mitigated. Wick/body touches alone do not mitigate.
+                // Mitigation check: price closes BELOW zone low after engulfing
                 bool mitigated = false
                 int k = engulfOff - 1
                 while k >= 1 and not mitigated
@@ -373,7 +361,7 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                     k -= 1
 
                 if not mitigated
-                    // One candle rule: check only the 3 candles immediately after engulfing
+                    // One candle rule: fewer than 2 of next 3 bars after engulfing exceed engulfing high
                     float engulfHigh = high[engulfOff]
                     int   aboveCount = 0
                     int   m = engulfOff - 1
@@ -384,7 +372,6 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                         m -= 1
 
                     if aboveCount < 2
-                        bestLow := cL
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
@@ -403,23 +390,23 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
     float zH = na
     float zL = na
     int   zB = na
-    float bestHigh = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
+    // Iterate from most recent candle outward; take the FIRST valid zone found
     int cOff = 1
-    while cOff <= maxOff
+    while cOff <= maxOff and na(zH)
         float cH = high[cOff]
         float cL = low[cOff]
 
-        if (na(bestHigh) or cH > bestHigh) and cH <= structHigh
-            // Engulfing check: immediate next candle (cOff-1) must close BELOW zone low
+        if cH <= structHigh
+            // Engulfing check: immediate next candle must close BELOW zone low
             int engulfOff2 = cOff == 1 ? (close[0] < cL ? 0 : -1) : (close[cOff - 1] < cL ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
-                // Mitigation check: price closes ABOVE zone high (supply fully broken through)
+                // Mitigation check: price closes ABOVE zone high after engulfing
                 bool mitigated = false
                 int k = engulfOff2 - 1
                 while k >= 1 and not mitigated
@@ -438,7 +425,6 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
                         m -= 1
 
                     if belowCount < 2
-                        bestHigh := cH
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
