@@ -336,17 +336,20 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
     float zH = na
     float zL = na
     int   zB = na
+    float bestLow = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate from most recent candle outward; take the FIRST valid zone found
+    // Iterate every candle; find the lowest-low valid zone strictly above the structural floor
     int cOff = 1
-    while cOff <= maxOff and na(zH)
+    while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
 
-        if cL >= structLow
+        // Strict: zone candle low must be ABOVE bL (excludes the bL candle itself)
+        if (na(bestLow) or cL < bestLow) and cL > structLow
+
             // Engulfing check: immediate next candle must close ABOVE zone high
             int engulfOff = cOff == 1 ? (close[0] > cH ? 0 : -1) : (close[cOff - 1] > cH ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
@@ -372,6 +375,7 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                         m -= 1
 
                     if aboveCount < 2
+                        bestLow := cL
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
@@ -390,17 +394,19 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
     float zH = na
     float zL = na
     int   zB = na
+    float bestHigh = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate from most recent candle outward; take the FIRST valid zone found
+    // Iterate every candle; find the highest-high valid zone strictly below the structural ceiling
     int cOff = 1
-    while cOff <= maxOff and na(zH)
+    while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
 
-        if cH <= structHigh
+        // Strict: zone candle high must be BELOW bH (excludes the bH candle itself)
+        if (na(bestHigh) or cH > bestHigh) and cH < structHigh
             // Engulfing check: immediate next candle must close BELOW zone low
             int engulfOff2 = cOff == 1 ? (close[0] < cL ? 0 : -1) : (close[cOff - 1] < cL ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
@@ -425,6 +431,7 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
                         m -= 1
 
                     if belowCount < 2
+                        bestHigh := cH
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
