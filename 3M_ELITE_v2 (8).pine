@@ -341,19 +341,21 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate every candle; find the lowest-low valid zone strictly above the structural floor
+    // Iterate every candle; find the lowest-BODY valid zone strictly above the structural floor
     int cOff = 1
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
+        float cBodyBot = math.min(open[cOff], close[cOff])
+        float cBodyTop = math.max(open[cOff], close[cOff])
 
-        // Strict: zone candle low must be ABOVE bL (excludes the bL candle itself)
-        if (na(bestLow) or cL < bestLow) and cL > structLow
+        // Strict: wick low must be above bL; selection uses BODY BOTTOM so spike-wick candles
+        // (which wick deep but close higher) don't beat genuine consolidation zones
+        if (na(bestLow) or cBodyBot < bestLow) and cL > structLow
 
             // Engulfing check: immediate next candle must close ABOVE zone candle's body top
             // (body top = max(open, close) — standard engulfing definition, excludes the wick)
-            float zBodyTop = math.max(open[cOff], close[cOff])
-            int engulfOff = cOff == 1 ? (close[0] > zBodyTop ? 0 : -1) : (close[cOff - 1] > zBodyTop ? cOff - 1 : -1)
+            int engulfOff = cOff == 1 ? (close[0] > cBodyTop ? 0 : -1) : (close[cOff - 1] > cBodyTop ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
@@ -377,7 +379,7 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                         m -= 1
 
                     if aboveCount < 2
-                        bestLow := cL
+                        bestLow := cBodyBot
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
@@ -407,12 +409,14 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
         float cH = high[cOff]
         float cL = low[cOff]
 
-        // Strict: zone candle high must be BELOW bH (excludes the bH candle itself)
-        if (na(bestHigh) or cH > bestHigh) and cH < structHigh
+        // Strict: wick high must be below bH; selection uses BODY TOP so spike-wick candles
+        // (which wick high but close lower) don't beat genuine consolidation zones
+        float cBodyBot2 = math.min(open[cOff], close[cOff])
+        float cBodyTop2 = math.max(open[cOff], close[cOff])
+        if (na(bestHigh) or cBodyTop2 > bestHigh) and cH < structHigh
             // Engulfing check: immediate next candle must close BELOW zone candle's body bottom
             // (body bottom = min(open, close) — standard engulfing definition, excludes the wick)
-            float zBodyBot = math.min(open[cOff], close[cOff])
-            int engulfOff2 = cOff == 1 ? (close[0] < zBodyBot ? 0 : -1) : (close[cOff - 1] < zBodyBot ? cOff - 1 : -1)
+            int engulfOff2 = cOff == 1 ? (close[0] < cBodyBot2 ? 0 : -1) : (close[cOff - 1] < cBodyBot2 ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
@@ -435,7 +439,7 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
                         m -= 1
 
                     if belowCount < 2
-                        bestHigh := cH
+                        bestHigh := cBodyTop2
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
@@ -715,7 +719,7 @@ if mkU and sSDZ
     // Debug: show which offset was selected and maxOff
     int dbMaxOff = math.min(bar_index - demandSearchStart, 500)
     int dbOff = na(zB) ? -1 : bar_index - zB
-    label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " max=" + str.tostring(dbMaxOff) + " " + dbMsgD, color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
+    label.new(bar_index, high + aV * 2, "off=" + str.tostring(dbOff) + " zL=" + str.tostring(zL, format.mintick) + " max=" + str.tostring(dbMaxOff) + " " + dbMsgD, color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny, style=label.style_label_down)
 
 if mkDn and sSDZ
     int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
