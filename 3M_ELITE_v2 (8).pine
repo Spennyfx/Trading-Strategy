@@ -350,8 +350,10 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
         // Strict: zone candle low must be ABOVE bL (excludes the bL candle itself)
         if (na(bestLow) or cL < bestLow) and cL > structLow
 
-            // Engulfing check: immediate next candle must close ABOVE zone high
-            int engulfOff = cOff == 1 ? (close[0] > cH ? 0 : -1) : (close[cOff - 1] > cH ? cOff - 1 : -1)
+            // Engulfing check: immediate next candle must close ABOVE zone candle's body top
+            // (body top = max(open, close) — standard engulfing definition, excludes the wick)
+            float zBodyTop = math.max(open[cOff], close[cOff])
+            int engulfOff = cOff == 1 ? (close[0] > zBodyTop ? 0 : -1) : (close[cOff - 1] > zBodyTop ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
@@ -407,8 +409,10 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
 
         // Strict: zone candle high must be BELOW bH (excludes the bH candle itself)
         if (na(bestHigh) or cH > bestHigh) and cH < structHigh
-            // Engulfing check: immediate next candle must close BELOW zone low
-            int engulfOff2 = cOff == 1 ? (close[0] < cL ? 0 : -1) : (close[cOff - 1] < cL ? cOff - 1 : -1)
+            // Engulfing check: immediate next candle must close BELOW zone candle's body bottom
+            // (body bottom = min(open, close) — standard engulfing definition, excludes the wick)
+            float zBodyBot = math.min(open[cOff], close[cOff])
+            int engulfOff2 = cOff == 1 ? (close[0] < zBodyBot ? 0 : -1) : (close[cOff - 1] < zBodyBot ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
