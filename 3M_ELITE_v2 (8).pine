@@ -332,7 +332,7 @@ if array.size(sq) > 20
 // Among all valid zone candles, pick the one with lowest low (demand)
 // or highest high (supply).
 
-f_findDemandZone(int breakBar, int rangeStartBar) =>
+f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
     float zH = na
     float zL = na
     int   zB = na
@@ -355,8 +355,8 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
         if na(lowestLowSeen) or cL < lowestLowSeen
             lowestLowSeen := cL
 
-        // Only consider if this could be lower than current best
-        if na(bestLow) or cL < bestLow
+        // Only consider if within current structural range and could be lower than current best
+        if (na(bestLow) or cL < bestLow) and cL >= structLow
 
             // Engulfing check: find the first candle to the right that closes ABOVE cH
             int engulfOff = -1
@@ -407,7 +407,7 @@ f_findDemandZone(int breakBar, int rangeStartBar) =>
 
     [zH, zL, zB, dbMsg]
 
-f_findSupplyZone(int breakBar, int rangeStartBar) =>
+f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
     float zH = na
     float zL = na
     int   zB = na
@@ -421,7 +421,7 @@ f_findSupplyZone(int breakBar, int rangeStartBar) =>
         float cH = high[cOff]
         float cL = low[cOff]
 
-        if na(bestHigh) or cH > bestHigh
+        if (na(bestHigh) or cH > bestHigh) and cH <= structHigh
             // Engulfing check: find the first candle to the right that closes BELOW cL
             int engulfOff2 = -1
             int eCheck2 = 1
@@ -725,7 +725,7 @@ if sK
 var box sdzBox = na
 if mkU and sSDZ
     int demandSearchStart = na(lDB) ? bar_index - 500 : lDB
-    [zH, zL, zB, dbMsgD] = f_findDemandZone(bkB, demandSearchStart)
+    [zH, zL, zB, dbMsgD] = f_findDemandZone(bkB, demandSearchStart, bL)
     if not na(sdzBox)
         box.delete(sdzBox)
         sdzBox := na
@@ -738,7 +738,7 @@ if mkU and sSDZ
 
 if mkDn and sSDZ
     int supplySearchStart = na(lUB) ? bar_index - 500 : lUB
-    [zH, zL, zB, dbMsg2] = f_findSupplyZone(bkB, supplySearchStart)
+    [zH, zL, zB, dbMsg2] = f_findSupplyZone(bkB, supplySearchStart, bH)
     if not na(sdzBox)
         box.delete(sdzBox)
         sdzBox := na
