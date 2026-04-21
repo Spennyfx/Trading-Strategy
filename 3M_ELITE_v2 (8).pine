@@ -336,30 +336,27 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
     float zH = na
     float zL = na
     int   zB = na
-    float bestLow = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate every candle; find the lowest-BODY valid zone strictly above the structural floor
+    // Scan every candle in the range; the LAST valid zone found (oldest = highest offset) wins.
+    // This gives the zone that formed earliest in the current bullish range — the true demand base.
     int cOff = 1
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
-        float cBodyBot = math.min(open[cOff], close[cOff])
         float cBodyTop = math.max(open[cOff], close[cOff])
 
-        // Strict: wick low must be above bL; selection uses BODY BOTTOM so spike-wick candles
-        // (which wick deep but close higher) don't beat genuine consolidation zones
-        if (na(bestLow) or cBodyBot < bestLow) and cL > structLow
+        // Wick low must be strictly above the structural floor (excludes the bL candle itself)
+        if cL > structLow
 
-            // Engulfing check: immediate next candle must close ABOVE zone candle's body top
-            // (body top = max(open, close) — standard engulfing definition, excludes the wick)
+            // Engulfing: immediate next candle must close ABOVE zone candle's body top
             int engulfOff = cOff == 1 ? (close[0] > cBodyTop ? 0 : -1) : (close[cOff - 1] > cBodyTop ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
-                // Mitigation check: price closes BELOW zone low after engulfing
+                // Mitigation: no close below zone low after engulfing
                 bool mitigated = false
                 int k = engulfOff - 1
                 while k >= 1 and not mitigated
@@ -368,7 +365,7 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                     k -= 1
 
                 if not mitigated
-                    // One candle rule: fewer than 2 of next 3 bars after engulfing exceed engulfing high
+                    // One-candle rule: fewer than 2 of next 3 bars after engulfing exceed engulfing high
                     float engulfHigh = high[engulfOff]
                     int   aboveCount = 0
                     int   m = engulfOff - 1
@@ -379,10 +376,11 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
                         m -= 1
 
                     if aboveCount < 2
-                        bestLow := cBodyBot
+                        // Overwrite — last valid zone (oldest) will be the final result
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
+                        dbMsg := ""
                     else
                         dbMsg := "off" + str.tostring(cOff) + ":1candle"
                 else
@@ -398,29 +396,27 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
     float zH = na
     float zL = na
     int   zB = na
-    float bestHigh = na
     string dbMsg = ""
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Iterate every candle; find the highest-high valid zone strictly below the structural ceiling
+    // Scan every candle in the range; the LAST valid zone found (oldest = highest offset) wins.
+    // This gives the zone that formed earliest in the current bearish range — the true supply base.
     int cOff = 1
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
+        float cBodyBot = math.min(open[cOff], close[cOff])
 
-        // Strict: wick high must be below bH; selection uses BODY TOP so spike-wick candles
-        // (which wick high but close lower) don't beat genuine consolidation zones
-        float cBodyBot2 = math.min(open[cOff], close[cOff])
-        float cBodyTop2 = math.max(open[cOff], close[cOff])
-        if (na(bestHigh) or cBodyTop2 > bestHigh) and cH < structHigh
-            // Engulfing check: immediate next candle must close BELOW zone candle's body bottom
-            // (body bottom = min(open, close) — standard engulfing definition, excludes the wick)
-            int engulfOff2 = cOff == 1 ? (close[0] < cBodyBot2 ? 0 : -1) : (close[cOff - 1] < cBodyBot2 ? cOff - 1 : -1)
+        // Wick high must be strictly below the structural ceiling (excludes the bH candle itself)
+        if cH < structHigh
+
+            // Engulfing: immediate next candle must close BELOW zone candle's body bottom
+            int engulfOff2 = cOff == 1 ? (close[0] < cBodyBot ? 0 : -1) : (close[cOff - 1] < cBodyBot ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
-                // Mitigation check: price closes ABOVE zone high after engulfing
+                // Mitigation: no close above zone high after engulfing
                 bool mitigated = false
                 int k = engulfOff2 - 1
                 while k >= 1 and not mitigated
@@ -429,6 +425,7 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
                     k -= 1
 
                 if not mitigated
+                    // One-candle rule: fewer than 2 of next 3 bars after engulfing fall below engulfing low
                     float engulfLow = low[engulfOff2]
                     int   belowCount = 0
                     int   m = engulfOff2 - 1
@@ -439,10 +436,11 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
                         m -= 1
 
                     if belowCount < 2
-                        bestHigh := cBodyTop2
+                        // Overwrite — last valid zone (oldest) will be the final result
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
+                        dbMsg := ""
                     else
                         dbMsg := "off" + str.tostring(cOff) + ":1candle"
                 else
