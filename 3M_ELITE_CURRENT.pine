@@ -340,54 +340,34 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Scan every candle in the range; the LAST valid zone found (oldest = highest offset) wins.
-    // This gives the zone that formed earliest in the current bullish range — the true demand base.
+    // Scan all candles in the range. Pick the DEEPEST (lowest cL) valid unmitigated zone.
     int cOff = 1
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
         float cBodyTop = math.max(open[cOff], close[cOff])
 
-        // Wick low must be strictly above the structural floor (excludes the bL candle itself)
         if cL > structLow
-
-            // Departure: find first candle after zone (scanning toward present) that closes above body top
-            int engulfOff = -1
-            int _e = cOff - 1
-            while _e >= 0 and engulfOff == -1
-                if close[_e] > cBodyTop
-                    engulfOff := _e
-                _e -= 1
+            // Engulfing: the candle IMMEDIATELY after the zone candle must close above zone body top
+            int engulfOff = cOff == 1 ? (close[0] > cBodyTop ? 0 : -1) : (close[cOff - 1] > cBodyTop ? cOff - 1 : -1)
             bool engulfing = engulfOff >= 0
 
             if engulfing
-                // Mitigation: no close below zone low after engulfing
+                // Mitigation: after the departure, no candle's wick must enter the zone range from above
                 bool mitigated = false
                 int k = engulfOff - 1
-                while k >= 1 and not mitigated
-                    if close[k] < cL
+                while k >= 0 and not mitigated
+                    if low[k] < cH
                         mitigated := true
                     k -= 1
 
                 if not mitigated
-                    // One-candle rule: fewer than 2 of next 3 bars after engulfing exceed engulfing high
-                    float engulfHigh = high[engulfOff]
-                    int   aboveCount = 0
-                    int   m = engulfOff - 1
-                    int   mMin = math.max(1, engulfOff - 3)
-                    while m >= mMin
-                        if high[m] > engulfHigh
-                            aboveCount += 1
-                        m -= 1
-
-                    if aboveCount < 2
-                        // Overwrite — last valid zone (oldest) will be the final result
+                    // Pick the DEEPEST valid zone (lowest low)
+                    if na(zL) or cL < zL
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
                         dbMsg := ""
-                    else
-                        dbMsg := "off" + str.tostring(cOff) + ":1candle"
                 else
                     dbMsg := "off" + str.tostring(cOff) + ":mitigated"
             else
@@ -405,54 +385,34 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
 
     int maxOff = math.min(bar_index - rangeStartBar, 500)
 
-    // Scan every candle in the range; the LAST valid zone found (oldest = highest offset) wins.
-    // This gives the zone that formed earliest in the current bearish range — the true supply base.
+    // Scan all candles in the range. Pick the DEEPEST (highest cH) valid unmitigated zone.
     int cOff = 1
     while cOff <= maxOff
         float cH = high[cOff]
         float cL = low[cOff]
         float cBodyBot = math.min(open[cOff], close[cOff])
 
-        // Wick high must be strictly below the structural ceiling (excludes the bH candle itself)
         if cH < structHigh
-
-            // Departure: find first candle after zone (scanning toward present) that closes below body bottom
-            int engulfOff2 = -1
-            int _e2 = cOff - 1
-            while _e2 >= 0 and engulfOff2 == -1
-                if close[_e2] < cBodyBot
-                    engulfOff2 := _e2
-                _e2 -= 1
+            // Engulfing: the candle IMMEDIATELY after the zone candle must close below zone body bottom
+            int engulfOff2 = cOff == 1 ? (close[0] < cBodyBot ? 0 : -1) : (close[cOff - 1] < cBodyBot ? cOff - 1 : -1)
             bool engulfing = engulfOff2 >= 0
 
             if engulfing
-                // Mitigation: no close above zone high after engulfing
+                // Mitigation: after the departure, no candle's wick must enter the zone range from below
                 bool mitigated = false
                 int k = engulfOff2 - 1
-                while k >= 1 and not mitigated
-                    if close[k] > cH
+                while k >= 0 and not mitigated
+                    if high[k] > cL
                         mitigated := true
                     k -= 1
 
                 if not mitigated
-                    // One-candle rule: fewer than 2 of next 3 bars after engulfing fall below engulfing low
-                    float engulfLow = low[engulfOff2]
-                    int   belowCount = 0
-                    int   m = engulfOff2 - 1
-                    int   mMin2 = math.max(1, engulfOff2 - 3)
-                    while m >= mMin2
-                        if low[m] < engulfLow
-                            belowCount += 1
-                        m -= 1
-
-                    if belowCount < 2
-                        // Overwrite — last valid zone (oldest) will be the final result
+                    // Pick the DEEPEST valid zone (highest high)
+                    if na(zH) or cH > zH
                         zH := cH
                         zL := cL
                         zB := bar_index - cOff
                         dbMsg := ""
-                    else
-                        dbMsg := "off" + str.tostring(cOff) + ":1candle"
                 else
                     dbMsg := "off" + str.tostring(cOff) + ":mitigated"
             else
