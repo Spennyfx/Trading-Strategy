@@ -351,11 +351,10 @@ f_findDemandZone(int breakBar, int rangeStartBar, float structLow) =>
         // Wick low must be strictly above the structural floor (excludes the bL candle itself)
         if cL > structLow
 
-            // Engulfing: first candle within next 3 candles that closes ABOVE zone candle's body top
+            // Departure: find first candle after zone (scanning toward present) that closes above body top
             int engulfOff = -1
             int _e = cOff - 1
-            int _eMin = math.max(0, cOff - 3)
-            while _e >= _eMin and engulfOff == -1
+            while _e >= 0 and engulfOff == -1
                 if close[_e] > cBodyTop
                     engulfOff := _e
                 _e -= 1
@@ -417,11 +416,10 @@ f_findSupplyZone(int breakBar, int rangeStartBar, float structHigh) =>
         // Wick high must be strictly below the structural ceiling (excludes the bH candle itself)
         if cH < structHigh
 
-            // Engulfing: first candle within next 3 candles that closes BELOW zone candle's body bottom
+            // Departure: find first candle after zone (scanning toward present) that closes below body bottom
             int engulfOff2 = -1
             int _e2 = cOff - 1
-            int _eMin2 = math.max(0, cOff - 3)
-            while _e2 >= _eMin2 and engulfOff2 == -1
+            while _e2 >= 0 and engulfOff2 == -1
                 if close[_e2] < cBodyBot
                     engulfOff2 := _e2
                 _e2 -= 1
